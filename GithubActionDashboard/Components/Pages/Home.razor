@@ -264,7 +264,6 @@
         {
             foreach (var repoCard in RepoCards.Values)
             {
-                await Task.Delay(100);
                 await repoCard.RefreshRuns();
             }
         }
@@ -315,8 +314,6 @@
 
     private async Task<IEnumerable<WorkflowRun>> LoadRunsForRepo(Repository repo, DateTimeOffset cutoff)
     {
-        await Task.Delay(100);
-
         try
         {
             var allRuns = await GitHubService.GetAllWorkflowRunsForRepoAsync(repo.Id, perPage: 100);
