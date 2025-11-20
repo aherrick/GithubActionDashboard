@@ -8,159 +8,161 @@
 
 <PageTitle>GitHub Actions Dashboard</PageTitle>
 
-<div class="mb-4">
-    <div class="input-group">
-        <span class="input-group-text">GitHub Token</span>
-        <input type="password" class="form-control" @bind="Token" placeholder="Enter your Personal Access Token" />
-        <button class="btn btn-primary" @onclick="Connect">Connect</button>
-    </div>
-</div>
-
-@if (!string.IsNullOrEmpty(StatusMessage))
-{
-    <div class="alert alert-success" role="alert">
-        @StatusMessage
-    </div>
-}
-
-@if (!string.IsNullOrEmpty(Token))
-{
+<div class="container mt-4">
     <div class="mb-4">
-        <button class="btn btn-outline-secondary" @onclick="ToggleRepoSelector">
-            @(ShowRepoSelector ? "Hide Repo Selector" : "Select Repositories")
-        </button>
+        <div class="input-group">
+            <span class="input-group-text">GitHub Token</span>
+            <input type="password" class="form-control" @bind="Token" placeholder="Enter your Personal Access Token" />
+            <button class="btn btn-primary" @onclick="Connect">Connect</button>
+        </div>
     </div>
 
-    @if (ShowRepoSelector)
+    @if (!string.IsNullOrEmpty(StatusMessage))
     {
-        <div class="card mb-4">
-            <div class="card-body">
-                <h5>Select Favorites</h5>
-                @if (AllRepos == null)
-                {
-                    <p>Loading repositories...</p>
-                }
-                else
-                {
-                    <div class="mb-2">
-                        <input class="form-control form-control-sm" placeholder="Filter..." @bind="RepoFilter" @bind:event="oninput" />
-                    </div>
-                    <div style="max-height: 300px; overflow-y: auto;">
-                        @foreach (var repo in FilteredAllRepos)
-                        {
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" 
-                                       checked="@FavoriteRepoIds.Contains(repo.Id)" 
-                                       @onchange="@(e => ToggleFavorite(repo.Id, (bool)(e.Value ?? false)))" 
-                                       id="repo-@repo.Id">
-                                <label class="form-check-label" for="repo-@repo.Id">
-                                    @repo.FullName
-                                </label>
-                            </div>
-                        }
-                    </div>
-                }
-            </div>
+        <div class="alert alert-success" role="alert">
+            @StatusMessage
         </div>
     }
 
-    <ul class="nav nav-tabs mb-3">
-        <li class="nav-item">
-            <a class="nav-link @(ActiveTab == 0 ? "active" : "")" href="#" @onclick="() => SwitchTab(0)" @onclick:preventDefault>Dashboard</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link @(ActiveTab == 1 ? "active" : "")" href="#" @onclick="() => SwitchTab(1)" @onclick:preventDefault>All Runs</a>
-        </li>
-    </ul>
-
-    @if (ActiveTab == 0)
+    @if (!string.IsNullOrEmpty(Token))
     {
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="mb-0">Dashboard</h5>
-            <button class="btn btn-sm btn-outline-primary" @onclick="RefreshAllRepos" disabled="@IsRefreshingRepos">
-                @if (IsRefreshingRepos)
-                {
-                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                    <span> Refreshing...</span>
-                }
-                else
-                {
-                    <span>Refresh All</span>
-                }
+        <div class="mb-4">
+            <button class="btn btn-outline-secondary" @onclick="ToggleRepoSelector">
+                @(ShowRepoSelector ? "Hide Repo Selector" : "Select Repositories")
             </button>
         </div>
-        <div class="row">
-            @foreach (var repo in FavoriteRepos)
-            {
-                <div class="col-md-6 col-lg-4">
-                    <RepoCard @ref="RepoCards[repo.Id]" Repo="repo" />
+
+        @if (ShowRepoSelector)
+        {
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5>Select Favorites</h5>
+                    @if (AllRepos == null)
+                    {
+                        <p>Loading repositories...</p>
+                    }
+                    else
+                    {
+                        <div class="mb-2">
+                            <input class="form-control form-control-sm" placeholder="Filter..." @bind="RepoFilter" @bind:event="oninput" />
+                        </div>
+                        <div style="max-height: 300px; overflow-y: auto;">
+                            @foreach (var repo in FilteredAllRepos)
+                            {
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" 
+                                           checked="@FavoriteRepoIds.Contains(repo.Id)" 
+                                           @onchange="@(e => ToggleFavorite(repo.Id, (bool)(e.Value ?? false)))" 
+                                           id="repo-@repo.Id">
+                                    <label class="form-check-label" for="repo-@repo.Id">
+                                        @repo.FullName
+                                    </label>
+                                </div>
+                            }
+                        </div>
+                    }
                 </div>
-            }
-        </div>
-    }
-    else
-    {
-        <div class="table-responsive">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <h5 class="mb-0">All Runs (last 7 days)</h5>
-                <button class="btn btn-sm btn-outline-secondary" @onclick="LoadAllRuns" disabled="@IsLoadingAllRuns">
-                    @(IsLoadingAllRuns ? "Loading..." : "Refresh")
+            </div>
+        }
+
+        <ul class="nav nav-tabs mb-3">
+            <li class="nav-item">
+                <a class="nav-link @(ActiveTab == 0 ? "active" : "")" href="#" @onclick="() => SwitchTab(0)" @onclick:preventDefault>Dashboard</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link @(ActiveTab == 1 ? "active" : "")" href="#" @onclick="() => SwitchTab(1)" @onclick:preventDefault>All Runs</a>
+            </li>
+        </ul>
+
+        @if (ActiveTab == 0)
+        {
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">Dashboard</h5>
+                <button class="btn btn-sm btn-outline-primary" @onclick="RefreshAllRepos" disabled="@IsRefreshingRepos">
+                    @if (IsRefreshingRepos)
+                    {
+                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        <span> Refreshing...</span>
+                    }
+                    else
+                    {
+                        <span>Refresh All</span>
+                    }
                 </button>
             </div>
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Repo</th>
-                        <th>Workflow</th>
-                        <th>Status</th>
-                        <th>Date</th>
-                    </tr>
-                </thead>
-                <tbody>
+            <div class="row">
+                @foreach (var repo in FavoriteRepos)
+                {
+                    <div class="col-md-6 col-lg-4">
+                        <RepoCard @ref="RepoCards[repo.Id]" Repo="repo" />
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0">All Runs (last 7 days)</h5>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="LoadAllRuns" disabled="@IsLoadingAllRuns">
+                        @(IsLoadingAllRuns ? "Loading..." : "Refresh")
+                    </button>
+                </div>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Repo</th>
+                            <th>Workflow</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
 
-                        @if (IsLoadingAllRuns)
-                        {
-                            <tr><td colspan="4">Loading runs across all favorite repositories...</td></tr>
-                        }
-                        else if (AllRuns == null || AllRuns.Count == 0)
-                        {
-                            <tr><td colspan="4">No runs loaded yet. Click Refresh to load runs.</td></tr>
-                        }
-                        else
-                        {
-                            @foreach (var run in AllRuns)
+                            @if (IsLoadingAllRuns)
                             {
-                                <tr>
-                                    <td>@run.Repository?.FullName</td>
-                                    <td>@run.Name</td>
-                                    <td>
-                                        <span class="badge @GetStatusBadgeClass(run.Status, run.Conclusion)">
-                                            @run.Status @(run.Conclusion.HasValue ? $"({run.Conclusion})" : "")
-                                        </span>
-                                    </td>
-                                    <td>
-                                        @if (run.Status.Value == WorkflowRunStatus.Completed && run.RunStartedAt != default && run.UpdatedAt > run.RunStartedAt)
-                                        {
-                                            var duration = run.UpdatedAt - run.RunStartedAt;
-                                            <span>took @duration.Humanize(precision: 2), finished @run.UpdatedAt.Humanize()</span>
-                                        }
-                                        else if (run.RunStartedAt != default)
-                                        {
-                                            <span>started @run.RunStartedAt.Humanize()</span>
-                                        }
-                                        else
-                                        {
-                                            <span>updated @run.UpdatedAt.Humanize()</span>
-                                        }
-                                    </td>
-                                </tr>
+                                <tr><td colspan="4">Loading runs across all favorite repositories...</td></tr>
                             }
-                        }
-                </tbody>
-            </table>
-        </div>
+                            else if (AllRuns == null || AllRuns.Count == 0)
+                            {
+                                <tr><td colspan="4">No runs loaded yet. Click Refresh to load runs.</td></tr>
+                            }
+                            else
+                            {
+                                @foreach (var run in AllRuns)
+                                {
+                                    <tr>
+                                        <td>@run.Repository?.FullName</td>
+                                        <td>@run.Name</td>
+                                        <td>
+                                            <span class="badge @GetStatusBadgeClass(run.Status, run.Conclusion)">
+                                                @run.Status @(run.Conclusion.HasValue ? $"({run.Conclusion})" : "")
+                                            </span>
+                                        </td>
+                                        <td>
+                                            @if (run.Status.Value == WorkflowRunStatus.Completed && run.RunStartedAt != default && run.UpdatedAt > run.RunStartedAt)
+                                            {
+                                                var duration = run.UpdatedAt - run.RunStartedAt;
+                                                <span>took @duration.Humanize(precision: 2), finished @run.UpdatedAt.Humanize()</span>
+                                            }
+                                            else if (run.RunStartedAt != default)
+                                            {
+                                                <span>started @run.RunStartedAt.Humanize()</span>
+                                            }
+                                            else
+                                            {
+                                                <span>updated @run.UpdatedAt.Humanize()</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                    </tbody>
+                </table>
+            </div>
+        }
     }
-}
+</div>
 
 @code {
     private string Token;
