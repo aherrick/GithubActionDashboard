@@ -8,6 +8,7 @@ namespace GithubActionDashboard.Services
     public class GitHubService
     {
         private GitHubClient _client;
+        private Dictionary<long, (string Owner, string Name)> _repoCache = new();
 
         public void Initialize(string token)
         {
@@ -15,68 +16,46 @@ namespace GithubActionDashboard.Services
             {
                 Credentials = new Credentials(token),
             };
+            _repoCache.Clear();
         }
 
-        public async Task<IReadOnlyList<Repository>> GetRepositoriesAsync()
-        {
-            var allRepos = await _client.Repository.GetAllForCurrent();
-            return allRepos;
-        }
+        public Task<IReadOnlyList<Repository>> GetRepositoriesAsync() => 
+            _client.Repository.GetAllForCurrent();
 
-        public async Task<Repository> GetRepositoryAsync(long repoId)
+        private async Task<(string Owner, string Name)> GetRepoInfoAsync(long repoId)
         {
-            return await _client.Repository.Get(repoId);
+            if (!_repoCache.ContainsKey(repoId))
+            {
+                var repo = await _client.Repository.Get(repoId);
+                _repoCache[repoId] = (repo.Owner.Login, repo.Name);
+            }
+            return _repoCache[repoId];
         }
 
         public async Task<WorkflowsResponse> GetWorkflowsAsync(long repoId)
         {
-            var repo = await _client.Repository.Get(repoId);
-            return await _client.Actions.Workflows.List(repo.Owner.Login, repo.Name);
+            var (owner, name) = await GetRepoInfoAsync(repoId);
+            return await _client.Actions.Workflows.List(owner, name);
         }
 
         public async Task TriggerWorkflowAsync(
             long repoId,
-            string workflowFileNameOrId,
+            long workflowId,
             string refName = "main"
         )
         {
+            var (owner, name) = await GetRepoInfoAsync(repoId);
             var dispatch = new CreateWorkflowDispatch(refName);
-            var repo = await _client.Repository.Get(repoId);
-
-            if (long.TryParse(workflowFileNameOrId, out long workflowId))
-            {
-                await _client.Actions.Workflows.CreateDispatch(
-                    repo.Owner.Login,
-                    repo.Name,
-                    workflowId,
-                    dispatch
-                );
-            }
-            else
-            {
-                await _client.Actions.Workflows.CreateDispatch(
-                    repo.Owner.Login,
-                    repo.Name,
-                    workflowFileNameOrId,
-                    dispatch
-                );
-            }
+            await _client.Actions.Workflows.CreateDispatch(owner, name, workflowId, dispatch);
         }
 
-        public async Task<WorkflowRunsResponse> GetWorkflowRunsAsync(
+        public async Task<WorkflowRunsResponse> GetAllWorkflowRunsForRepoAsync(
             long repoId,
-            string workflowFileNameOrId,
             int perPage = 100
         )
         {
-            var repo = await _client.Repository.Get(repoId);
-
-            // Use manual API call since Octokit overload seems tricky or missing in this context
-            // Endpoint: GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs
-            var uri = new Uri(
-                $"repos/{repo.Owner.Login}/{repo.Name}/actions/workflows/{workflowFileNameOrId}/runs?per_page={perPage}",
-                UriKind.Relative
-            );
+            var (owner, name) = await GetRepoInfoAsync(repoId);
+            var uri = new Uri($"repos/{owner}/{name}/actions/runs?per_page={perPage}", UriKind.Relative);
 
             try
             {

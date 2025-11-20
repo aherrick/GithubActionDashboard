@@ -1,7 +1,6 @@
 @using GithubActionDashboard.Services
 @using Octokit
 @inject GitHubService GitHubService
-@implements IDisposable
 
 <div class="card mb-4 shadow-sm">
     <div class="card-header d-flex justify-content-between align-items-center">
@@ -75,12 +74,10 @@
     private IReadOnlyList<Workflow> Workflows;
     private Dictionary<long, WorkflowRun> LatestRuns = new Dictionary<long, WorkflowRun>();
     private HashSet<long> LoadingWorkflows = new HashSet<long>();
-    private System.Threading.Timer _timer;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadWorkflows();
-        _timer = new System.Threading.Timer(async _ => await InvokeAsync(RefreshRuns), null, 0, 5000); // Poll every 5s
     }
 
     private async Task LoadWorkflows()
@@ -97,24 +94,22 @@
         }
     }
 
-    private async Task RefreshRuns()
+    public async Task RefreshRuns()
     {
         if (Workflows == null) return;
 
-        foreach (var wf in Workflows)
+        try
         {
-            try
+            var allRuns = await GitHubService.GetAllWorkflowRunsForRepoAsync(Repo.Id, perPage: 20);
+            
+            if (allRuns?.WorkflowRuns != null)
             {
-                await Task.Delay(500);
-                var runs = await GitHubService.GetWorkflowRunsAsync(Repo.Id, wf.Id.ToString());
-                if (runs != null && runs.TotalCount > 0)
-                {
-                    LatestRuns[wf.Id] = runs.WorkflowRuns[0];
-                }
+                LatestRuns = allRuns.WorkflowRuns
+                    .GroupBy(r => r.WorkflowId)
+                    .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.UpdatedAt).First());
             }
-            catch { /* Ignore errors during polling */ }
         }
-        StateHasChanged();
+        catch { /* Ignore errors */ }
     }
 
     private async Task TriggerWorkflow(Workflow wf)
@@ -122,8 +117,7 @@
         LoadingWorkflows.Add(wf.Id);
         try
         {
-            await GitHubService.TriggerWorkflowAsync(Repo.Id, wf.Id.ToString());
-            // Wait a bit for the run to appear
+            await GitHubService.TriggerWorkflowAsync(Repo.Id, wf.Id);
             await Task.Delay(2000);
             await RefreshRuns();
         }
@@ -146,10 +140,5 @@
             return conclusion?.Value == WorkflowRunConclusion.Success ? "bg-success" : "bg-danger";
         }
         return "bg-warning text-dark";
-    }
-
-    public void Dispose()
-    {
-        _timer?.Dispose();
     }
 }

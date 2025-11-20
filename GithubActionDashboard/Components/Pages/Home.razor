@@ -49,7 +49,7 @@
                         {
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" 
-                                       checked="@IsFavorite(repo.Id)" 
+                                       checked="@FavoriteRepoIds.Contains(repo.Id)" 
                                        @onchange="@(e => ToggleFavorite(repo.Id, (bool)(e.Value ?? false)))" 
                                        id="repo-@repo.Id">
                                 <label class="form-check-label" for="repo-@repo.Id">
@@ -74,11 +74,25 @@
 
     @if (ActiveTab == 0)
     {
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Dashboard</h5>
+            <button class="btn btn-sm btn-outline-primary" @onclick="RefreshAllRepos" disabled="@IsRefreshingRepos">
+                @if (IsRefreshingRepos)
+                {
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <span> Refreshing...</span>
+                }
+                else
+                {
+                    <span>Refresh All</span>
+                }
+            </button>
+        </div>
         <div class="row">
             @foreach (var repo in FavoriteRepos)
             {
                 <div class="col-md-6 col-lg-4">
-                    <RepoCard Repo="repo" />
+                    <RepoCard @ref="RepoCards[repo.Id]" Repo="repo" />
                 </div>
             }
         </div>
@@ -145,6 +159,8 @@
     private HashSet<long> FavoriteRepoIds = new();
     private List<WorkflowRun> AllRuns;
     private bool IsLoadingAllRuns { get; set; }
+    private bool IsRefreshingRepos { get; set; }
+    private Dictionary<long, RepoCard> RepoCards = new();
 
     private IEnumerable<Repository> FilteredAllRepos =>
         (AllRepos ?? Array.Empty<Repository>())
@@ -205,15 +221,13 @@
         }
     }
 
-    private bool IsFavorite(long repoId) => FavoriteRepoIds.Contains(repoId);
-
     private async Task ToggleFavorite(long repoId, bool isFavorite)
     {
         if (isFavorite)
         {
             FavoriteRepoIds.Add(repoId);
             var repo = AllRepos?.FirstOrDefault(r => r.Id == repoId);
-            if (repo != null && !FavoriteRepos.Any(r => r.Id == repoId))
+            if (repo != null)
             {
                 FavoriteRepos.Add(repo);
             }
@@ -221,14 +235,28 @@
         else
         {
             FavoriteRepoIds.Remove(repoId);
-            var repo = FavoriteRepos.FirstOrDefault(r => r.Id == repoId);
-            if (repo != null)
-            {
-                FavoriteRepos.Remove(repo);
-            }
+            FavoriteRepos.RemoveAll(r => r.Id == repoId);
         }
         
         await LocalStorage.SetItemAsync("favoriteRepoIds", FavoriteRepoIds);
+    }
+
+    private async Task RefreshAllRepos()
+    {
+        IsRefreshingRepos = true;
+
+        try
+        {
+            foreach (var repoCard in RepoCards.Values)
+            {
+                await Task.Delay(100);
+                await repoCard.RefreshRuns();
+            }
+        }
+        finally
+        {
+            IsRefreshingRepos = false;
+        }
     }
 
     private async Task LoadFavorites()
@@ -252,71 +280,37 @@
     private async Task LoadAllRuns()
     {
         IsLoadingAllRuns = true;
-        StateHasChanged();
 
         try
         {
             var cutoff = DateTimeOffset.UtcNow.AddDays(-7);
-            var tasks = new List<Task<IEnumerable<WorkflowRun>>>();
-
-            foreach (var repo in FavoriteRepos)
-            {
-                tasks.Add(LoadRunsForRepo(repo, cutoff));
-            }
-
+            var tasks = FavoriteRepos.Select(repo => LoadRunsForRepo(repo, cutoff));
             var results = await Task.WhenAll(tasks);
-            var collected = results.SelectMany(r => r ?? Enumerable.Empty<WorkflowRun>());
 
-            AllRuns = collected
+            AllRuns = results
+                .SelectMany(r => r ?? Enumerable.Empty<WorkflowRun>())
                 .OrderByDescending(r => r.UpdatedAt)
                 .ToList();
         }
         finally
         {
             IsLoadingAllRuns = false;
-            StateHasChanged();
         }
     }
 
     private async Task<IEnumerable<WorkflowRun>> LoadRunsForRepo(Repository repo, DateTimeOffset cutoff)
     {
-        // Small delay to avoid hitting the API with all repos at once
-        await Task.Delay(500);
-
-        var collected = new List<WorkflowRun>();
+        await Task.Delay(100);
 
         try
         {
-            var workflows = await GitHubService.GetWorkflowsAsync(repo.Id);
-            if (workflows != null)
-            {
-                var runTasks = new List<Task<WorkflowRunsResponse>>();
-
-                foreach (var wf in workflows.Workflows)
-                {
-                    // Small stagger between workflow-level requests as well
-                    await Task.Delay(500);
-                    runTasks.Add(GitHubService.GetWorkflowRunsAsync(repo.Id, wf.Id.ToString(), perPage: 100));
-                }
-
-                var runResults = await Task.WhenAll(runTasks);
-
-                foreach (var runsResponse in runResults)
-                {
-                    if (runsResponse?.WorkflowRuns != null)
-                    {
-                        collected.AddRange(runsResponse.WorkflowRuns
-                            .Where(r => r.UpdatedAt >= cutoff));
-                    }
-                }
-            }
+            var allRuns = await GitHubService.GetAllWorkflowRunsForRepoAsync(repo.Id, perPage: 100);
+            return allRuns?.WorkflowRuns?.Where(r => r.UpdatedAt >= cutoff) ?? Enumerable.Empty<WorkflowRun>();
         }
         catch
         {
-            // Ignore errors for this repo
+            return Enumerable.Empty<WorkflowRun>();
         }
-
-        return collected;
     }
 
     private string GetStatusBadgeClass(StringEnum<WorkflowRunStatus> status, StringEnum<WorkflowRunConclusion>? conclusion)
