@@ -8,7 +8,7 @@ namespace GithubActionDashboard.Services
     public class GitHubService
     {
         private GitHubClient _client;
-        private Dictionary<long, (string Owner, string Name)> _repoCache = new();
+        private readonly Dictionary<long, (string Owner, string Name)> _repoCache = [];
 
         public void Initialize(string token)
         {
@@ -19,17 +19,18 @@ namespace GithubActionDashboard.Services
             _repoCache.Clear();
         }
 
-        public Task<IReadOnlyList<Repository>> GetRepositoriesAsync() => 
+        public Task<IReadOnlyList<Repository>> GetRepositoriesAsync() =>
             _client.Repository.GetAllForCurrent();
 
         private async Task<(string Owner, string Name)> GetRepoInfoAsync(long repoId)
         {
-            if (!_repoCache.ContainsKey(repoId))
+            if (!_repoCache.TryGetValue(repoId, out (string Owner, string Name) value))
             {
                 var repo = await _client.Repository.Get(repoId);
-                _repoCache[repoId] = (repo.Owner.Login, repo.Name);
+                value = (repo.Owner.Login, repo.Name);
+                _repoCache[repoId] = value;
             }
-            return _repoCache[repoId];
+            return value;
         }
 
         public async Task<WorkflowsResponse> GetWorkflowsAsync(long repoId)
@@ -55,7 +56,10 @@ namespace GithubActionDashboard.Services
         )
         {
             var (owner, name) = await GetRepoInfoAsync(repoId);
-            var uri = new Uri($"repos/{owner}/{name}/actions/runs?per_page={perPage}", UriKind.Relative);
+            var uri = new Uri(
+                $"repos/{owner}/{name}/actions/runs?per_page={perPage}",
+                UriKind.Relative
+            );
 
             try
             {

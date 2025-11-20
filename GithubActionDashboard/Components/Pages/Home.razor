@@ -139,12 +139,19 @@
                                         </span>
                                     </td>
                                     <td>
-                                        @if (run.RunStartedAt != default && run.UpdatedAt > run.RunStartedAt)
+                                        @if (run.Status.Value == WorkflowRunStatus.Completed && run.RunStartedAt != default && run.UpdatedAt > run.RunStartedAt)
                                         {
                                             var duration = run.UpdatedAt - run.RunStartedAt;
-                                            <span>took @duration.Humanize(precision: 2), </span>
+                                            <span>took @duration.Humanize(precision: 2), finished @run.UpdatedAt.Humanize()</span>
                                         }
-                                        <span>finished @run.UpdatedAt.Humanize()</span>
+                                        else if (run.RunStartedAt != default)
+                                        {
+                                            <span>started @run.RunStartedAt.Humanize()</span>
+                                        }
+                                        else
+                                        {
+                                            <span>updated @run.UpdatedAt.Humanize()</span>
+                                        }
                                     </td>
                                 </tr>
                             }
