@@ -1,0 +1,155 @@
+@using GithubActionDashboard.Services
+@using Octokit
+@inject GitHubService GitHubService
+@implements IDisposable
+
+<div class="card mb-4 shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="my-0">@Repo.Name</h5>
+        <a href="@Repo.HtmlUrl" target="_blank" class="btn btn-sm btn-outline-secondary">View on GitHub</a>
+    </div>
+    <div class="card-body">
+        @if (Workflows == null)
+        {
+            <p>Loading workflows...</p>
+        }
+        else if (Workflows.Count == 0)
+        {
+            <p>No workflows found.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>Workflow</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var wf in Workflows)
+                        {
+                            var run = LatestRuns.ContainsKey(wf.Id) ? LatestRuns[wf.Id] : null;
+                            <tr>
+                                <td>@wf.Name</td>
+                                <td>
+                                    @if (run != null)
+                                    {
+                                        <span class="badge @GetStatusBadgeClass(run.Status, run.Conclusion)">
+                                            @run.Status @(run.Conclusion.HasValue ? $"({run.Conclusion})" : "")
+                                        </span>
+                                        <br/>
+                                        <small class="text-muted">@run.UpdatedAt.ToLocalTime().ToString("g")</small>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">No runs</span>
+                                    }
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary" @onclick="() => TriggerWorkflow(wf)" disabled="@IsLoading(wf.Id)">
+                                        @if (IsLoading(wf.Id))
+                                        {
+                                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                        }
+                                        else
+                                        {
+                                            <span>Run</span>
+                                        }
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public Repository Repo { get; set; } = default!;
+
+    private IReadOnlyList<Workflow> Workflows;
+    private Dictionary<long, WorkflowRun> LatestRuns = new Dictionary<long, WorkflowRun>();
+    private HashSet<long> LoadingWorkflows = new HashSet<long>();
+    private System.Threading.Timer _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWorkflows();
+        _timer = new System.Threading.Timer(async _ => await InvokeAsync(RefreshRuns), null, 0, 5000); // Poll every 5s
+    }
+
+    private async Task LoadWorkflows()
+    {
+        try
+        {
+            var response = await GitHubService.GetWorkflowsAsync(Repo.Id);
+            Workflows = response.Workflows;
+            await RefreshRuns();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading workflows for {Repo.Name}: {ex.Message}");
+        }
+    }
+
+    private async Task RefreshRuns()
+    {
+        if (Workflows == null) return;
+
+        foreach (var wf in Workflows)
+        {
+            try
+            {
+                await Task.Delay(500);
+                var runs = await GitHubService.GetWorkflowRunsAsync(Repo.Id, wf.Id.ToString());
+                if (runs != null && runs.TotalCount > 0)
+                {
+                    LatestRuns[wf.Id] = runs.WorkflowRuns[0];
+                }
+            }
+            catch { /* Ignore errors during polling */ }
+        }
+        StateHasChanged();
+    }
+
+    private async Task TriggerWorkflow(Workflow wf)
+    {
+        LoadingWorkflows.Add(wf.Id);
+        try
+        {
+            await GitHubService.TriggerWorkflowAsync(Repo.Id, wf.Id.ToString());
+            // Wait a bit for the run to appear
+            await Task.Delay(2000);
+            await RefreshRuns();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error triggering workflow {wf.Name}: {ex.Message}");
+        }
+        finally
+        {
+            LoadingWorkflows.Remove(wf.Id);
+        }
+    }
+
+    private bool IsLoading(long wfId) => LoadingWorkflows.Contains(wfId);
+
+    private string GetStatusBadgeClass(StringEnum<WorkflowRunStatus> status, StringEnum<WorkflowRunConclusion>? conclusion)
+    {
+        if (status.Value == WorkflowRunStatus.Completed)
+        {
+            return conclusion?.Value == WorkflowRunConclusion.Success ? "bg-success" : "bg-danger";
+        }
+        return "bg-warning text-dark";
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+}

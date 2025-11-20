@@ -1,0 +1,330 @@
+﻿@page "/"
+@using GithubActionDashboard.Services
+@using Octokit
+@using Blazored.LocalStorage
+@inject GitHubService GitHubService
+@inject ILocalStorageService LocalStorage
+
+<PageTitle>GitHub Actions Dashboard</PageTitle>
+
+<div class="mb-4">
+    <div class="input-group">
+        <span class="input-group-text">GitHub Token</span>
+        <input type="password" class="form-control" @bind="Token" placeholder="Enter your Personal Access Token" />
+        <button class="btn btn-primary" @onclick="Connect">Connect</button>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(StatusMessage))
+{
+    <div class="alert alert-success" role="alert">
+        @StatusMessage
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Token))
+{
+    <div class="mb-4">
+        <button class="btn btn-outline-secondary" @onclick="ToggleRepoSelector">
+            @(ShowRepoSelector ? "Hide Repo Selector" : "Select Repositories")
+        </button>
+    </div>
+
+    @if (ShowRepoSelector)
+    {
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5>Select Favorites</h5>
+                @if (AllRepos == null)
+                {
+                    <p>Loading repositories...</p>
+                }
+                else
+                {
+                    <div class="mb-2">
+                        <input class="form-control form-control-sm" placeholder="Filter..." @bind="RepoFilter" @bind:event="oninput" />
+                    </div>
+                    <div style="max-height: 300px; overflow-y: auto;">
+                        @foreach (var repo in FilteredAllRepos)
+                        {
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" 
+                                       checked="@IsFavorite(repo.Id)" 
+                                       @onchange="@(e => ToggleFavorite(repo.Id, (bool)(e.Value ?? false)))" 
+                                       id="repo-@repo.Id">
+                                <label class="form-check-label" for="repo-@repo.Id">
+                                    @repo.FullName
+                                </label>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+            <a class="nav-link @(ActiveTab == 0 ? "active" : "")" href="#" @onclick="() => SwitchTab(0)" @onclick:preventDefault>Dashboard</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link @(ActiveTab == 1 ? "active" : "")" href="#" @onclick="() => SwitchTab(1)" @onclick:preventDefault>All Runs</a>
+        </li>
+    </ul>
+
+    @if (ActiveTab == 0)
+    {
+        <div class="row">
+            @foreach (var repo in FavoriteRepos)
+            {
+                <div class="col-md-6 col-lg-4">
+                    <RepoCard Repo="repo" />
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="mb-0">All Runs (last 7 days)</h5>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="LoadAllRuns" disabled="@IsLoadingAllRuns">
+                    @(IsLoadingAllRuns ? "Loading..." : "Refresh")
+                </button>
+            </div>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Repo</th>
+                        <th>Workflow</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+
+                        @if (IsLoadingAllRuns)
+                        {
+                            <tr><td colspan="4">Loading runs across all favorite repositories...</td></tr>
+                        }
+                        else if (AllRuns == null || AllRuns.Count == 0)
+                        {
+                            <tr><td colspan="4">No runs loaded yet. Click Refresh to load runs.</td></tr>
+                        }
+                        else
+                        {
+                            @foreach (var run in AllRuns)
+                            {
+                                <tr>
+                                    <td>@run.Repository?.FullName</td>
+                                    <td>@run.Name</td>
+                                    <td>
+                                        <span class="badge @GetStatusBadgeClass(run.Status, run.Conclusion)">
+                                            @run.Status @(run.Conclusion.HasValue ? $"({run.Conclusion})" : "")
+                                        </span>
+                                    </td>
+                                    <td>@run.UpdatedAt.ToLocalTime().ToString("g")</td>
+                                </tr>
+                            }
+                        }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@code {
+    private string Token;
+    private bool ShowRepoSelector = false;
+    private int ActiveTab = 0;
+    private string RepoFilter = "";
+    private string StatusMessage;
+    
+    private List<Repository> FavoriteRepos = new();
+    private IReadOnlyList<Repository> AllRepos;
+    private HashSet<long> FavoriteRepoIds = new();
+    private List<WorkflowRun> AllRuns;
+    private bool IsLoadingAllRuns { get; set; }
+
+    private IEnumerable<Repository> FilteredAllRepos =>
+        (AllRepos ?? Array.Empty<Repository>())
+            .Where(r => string.IsNullOrWhiteSpace(RepoFilter) || r.FullName.Contains(RepoFilter, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(r => FavoriteRepoIds.Contains(r.Id))
+            .ThenBy(r => r.FullName);
+
+    private async Task Connect()
+    {
+        StatusMessage = null;
+
+        if (string.IsNullOrWhiteSpace(Token))
+        {
+            StatusMessage = "Please enter a token.";
+            return;
+        }
+
+        try
+        {
+            GitHubService.Initialize(Token);
+
+            // Simple connectivity test – try to read current user's repos
+            var testRepos = await GitHubService.GetRepositoriesAsync();
+
+            // Load favorites from local storage (best-effort)
+            try
+            {
+                var storedIds = await LocalStorage.GetItemAsync<HashSet<long>>("favoriteRepoIds");
+                if (storedIds != null && storedIds.Count > 0)
+                {
+                    FavoriteRepoIds = storedIds;
+                    await LoadFavorites();
+                }
+            }
+            catch
+            {
+                // Ignore local storage issues, but don't fail connect
+            }
+
+            StatusMessage = $"Connected. Found {testRepos.Count} repositories.";
+        }
+        catch (AuthorizationException)
+        {
+            StatusMessage = "GitHub rejected the token. Check that it is valid and has the 'repo' and 'workflow' scopes.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to connect: {ex.Message}";
+        }
+    }
+
+    private async Task ToggleRepoSelector()
+    {
+        ShowRepoSelector = !ShowRepoSelector;
+        if (ShowRepoSelector && AllRepos == null)
+        {
+            AllRepos = await GitHubService.GetRepositoriesAsync();
+        }
+    }
+
+    private bool IsFavorite(long repoId) => FavoriteRepoIds.Contains(repoId);
+
+    private async Task ToggleFavorite(long repoId, bool isFavorite)
+    {
+        if (isFavorite)
+        {
+            FavoriteRepoIds.Add(repoId);
+            var repo = AllRepos?.FirstOrDefault(r => r.Id == repoId);
+            if (repo != null && !FavoriteRepos.Any(r => r.Id == repoId))
+            {
+                FavoriteRepos.Add(repo);
+            }
+        }
+        else
+        {
+            FavoriteRepoIds.Remove(repoId);
+            var repo = FavoriteRepos.FirstOrDefault(r => r.Id == repoId);
+            if (repo != null)
+            {
+                FavoriteRepos.Remove(repo);
+            }
+        }
+        
+        await LocalStorage.SetItemAsync("favoriteRepoIds", FavoriteRepoIds);
+    }
+
+    private async Task LoadFavorites()
+    {
+        FavoriteRepos.Clear();
+        if (FavoriteRepoIds.Count == 0) return;
+
+        var allRepos = await GitHubService.GetRepositoriesAsync();
+        FavoriteRepos.AddRange(allRepos.Where(r => FavoriteRepoIds.Contains(r.Id)));
+    }
+
+    private async Task SwitchTab(int tabIndex)
+    {
+        ActiveTab = tabIndex;
+        if (tabIndex == 1 && (AllRuns == null || AllRuns.Count == 0))
+        {
+            await LoadAllRuns();
+        }
+    }
+
+    private async Task LoadAllRuns()
+    {
+        IsLoadingAllRuns = true;
+        StateHasChanged();
+
+        try
+        {
+            var cutoff = DateTimeOffset.UtcNow.AddDays(-7);
+            var tasks = new List<Task<IEnumerable<WorkflowRun>>>();
+
+            foreach (var repo in FavoriteRepos)
+            {
+                tasks.Add(LoadRunsForRepo(repo, cutoff));
+            }
+
+            var results = await Task.WhenAll(tasks);
+            var collected = results.SelectMany(r => r ?? Enumerable.Empty<WorkflowRun>());
+
+            AllRuns = collected
+                .OrderByDescending(r => r.UpdatedAt)
+                .ToList();
+        }
+        finally
+        {
+            IsLoadingAllRuns = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task<IEnumerable<WorkflowRun>> LoadRunsForRepo(Repository repo, DateTimeOffset cutoff)
+    {
+        // Small delay to avoid hitting the API with all repos at once
+        await Task.Delay(500);
+
+        var collected = new List<WorkflowRun>();
+
+        try
+        {
+            var workflows = await GitHubService.GetWorkflowsAsync(repo.Id);
+            if (workflows != null)
+            {
+                var runTasks = new List<Task<WorkflowRunsResponse>>();
+
+                foreach (var wf in workflows.Workflows)
+                {
+                    // Small stagger between workflow-level requests as well
+                    await Task.Delay(500);
+                    runTasks.Add(GitHubService.GetWorkflowRunsAsync(repo.Id, wf.Id.ToString(), perPage: 100));
+                }
+
+                var runResults = await Task.WhenAll(runTasks);
+
+                foreach (var runsResponse in runResults)
+                {
+                    if (runsResponse?.WorkflowRuns != null)
+                    {
+                        collected.AddRange(runsResponse.WorkflowRuns
+                            .Where(r => r.UpdatedAt >= cutoff));
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Ignore errors for this repo
+        }
+
+        return collected;
+    }
+
+    private string GetStatusBadgeClass(StringEnum<WorkflowRunStatus> status, StringEnum<WorkflowRunConclusion>? conclusion)
+    {
+        if (status.Value == WorkflowRunStatus.Completed)
+        {
+            return conclusion?.Value == WorkflowRunConclusion.Success ? "bg-success" : "bg-danger";
+        }
+        return "bg-warning text-dark";
+    }
+}
