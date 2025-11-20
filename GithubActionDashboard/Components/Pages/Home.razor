@@ -2,6 +2,7 @@
 @using GithubActionDashboard.Services
 @using Octokit
 @using Blazored.LocalStorage
+@using Humanizer
 @inject GitHubService GitHubService
 @inject ILocalStorageService LocalStorage
 
@@ -137,7 +138,14 @@
                                             @run.Status @(run.Conclusion.HasValue ? $"({run.Conclusion})" : "")
                                         </span>
                                     </td>
-                                    <td>@run.UpdatedAt.ToLocalTime().ToString("g")</td>
+                                    <td>
+                                        @if (run.RunStartedAt != default && run.UpdatedAt > run.RunStartedAt)
+                                        {
+                                            var duration = run.UpdatedAt - run.RunStartedAt;
+                                            <span>took @duration.Humanize(precision: 2), </span>
+                                        }
+                                        <span>finished @run.UpdatedAt.Humanize()</span>
+                                    </td>
                                 </tr>
                             }
                         }

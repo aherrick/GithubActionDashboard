@@ -1,5 +1,6 @@
 @using GithubActionDashboard.Services
 @using Octokit
+@using Humanizer
 @inject GitHubService GitHubService
 
 <div class="card mb-4 shadow-sm">
@@ -39,8 +40,15 @@
                                         <span class="badge @GetStatusBadgeClass(run.Status, run.Conclusion)">
                                             @run.Status @(run.Conclusion.HasValue ? $"({run.Conclusion})" : "")
                                         </span>
-                                        <br/>
-                                        <small class="text-muted">@run.UpdatedAt.ToLocalTime().ToString("g")</small>
+                                        <br />
+                                        <small class="text-muted">
+                                            @if (run.RunStartedAt != default && run.UpdatedAt > run.RunStartedAt)
+                                            {
+                                                var duration = run.UpdatedAt - run.RunStartedAt;
+                                                @($"took {duration.Humanize(precision: 2)} ")
+                                            }
+                                            finished @run.UpdatedAt.Humanize()
+                                        </small>
                                     }
                                     else
                                     {
