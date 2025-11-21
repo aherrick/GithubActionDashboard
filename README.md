@@ -1,6 +1,6 @@
 # GitHub Action Dashboard
 
-![Build Status](https://github.com/aherrick/GithubActionDashboard/actions/workflows/build.yml/badge.svg)
+![Build Status](https://github.com/aherrick/GithubActionDashboard/actions/workflows/build.yml/badge.svg) ![Publish Status](https://github.com/aherrick/GithubActionDashboard/actions/workflows/publish.yml/badge.svg)
 
 A simple, efficient Blazor application for monitoring and managing your GitHub Actions workflows across multiple repositories.
 
