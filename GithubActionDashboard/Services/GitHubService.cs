@@ -5,7 +5,7 @@ namespace GithubActionDashboard.Services
     public class GitHubService
     {
         private GitHubClient _client;
-        private readonly Dictionary<long, (string Owner, string Name)> _repoCache = [];
+        private IReadOnlyList<Repository> _repositories;
 
         public void Initialize(string token)
         {
@@ -13,21 +13,25 @@ namespace GithubActionDashboard.Services
             {
                 Credentials = new Credentials(token),
             };
-            _repoCache.Clear();
+            _repositories = null;
         }
 
-        public Task<IReadOnlyList<Repository>> GetRepositoriesAsync() =>
-            _client.Repository.GetAllForCurrent();
+        public async Task<IReadOnlyList<Repository>> GetRepositoriesAsync()
+        {
+            _repositories ??= await _client.Repository.GetAllForCurrent();
+            return _repositories;
+        }
 
         private async Task<(string Owner, string Name)> GetRepoInfoAsync(long repoId)
         {
-            if (!_repoCache.TryGetValue(repoId, out (string Owner, string Name) value))
+            if (_repositories == null)
             {
-                var repo = await _client.Repository.Get(repoId);
-                value = (repo.Owner.Login, repo.Name);
-                _repoCache[repoId] = value;
+                await GetRepositoriesAsync();
             }
-            return value;
+
+            var repo = _repositories?.FirstOrDefault(r => r.Id == repoId);
+
+            return (repo.Owner.Login, repo.Name);
         }
 
         public async Task<WorkflowsResponse> GetWorkflowsAsync(long repoId)
