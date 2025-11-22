@@ -24,7 +24,7 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           action: "upload"
-          app_location: "GithubActionDashboard"
+          app_location: "/"
           api_location: ""
-          output_location: "bin/Release/net10.0/wwwroot"
+          output_location: "GithubActionDashboard/bin/Release/net10.0/wwwroot"
           skip_app_build: true
