@@ -6,7 +6,7 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    name: publish
+    name: Build and Deploy
 
     steps:
       - uses: actions/checkout@v4
