@@ -4,6 +4,8 @@
 
 A simple, efficient Blazor application for monitoring and managing your GitHub Actions workflows across multiple repositories.
 
+[Try it out here](https://salmon-tree-00ab82010.3.azurestaticapps.net/) (BYO access token with `repo` and `workflow` scopes).
+
 ## Features
 
 - **Dashboard View**: Monitor the latest status of workflows for your favorite repositories in one place.
