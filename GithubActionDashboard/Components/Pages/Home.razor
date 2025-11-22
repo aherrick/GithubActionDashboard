@@ -13,7 +13,17 @@
         <div class="input-group">
             <span class="input-group-text">GitHub Token</span>
             <input type="password" class="form-control" @bind="Token" placeholder="Enter your Personal Access Token" />
-            <button class="btn btn-primary" @onclick="Connect">Connect</button>
+            <button class="btn btn-primary" @onclick="Connect" disabled="@IsConnecting">
+                @if (IsConnecting)
+                {
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <span> Connecting...</span>
+                }
+                else
+                {
+                    <span>Connect</span>
+                }
+            </button>
         </div>
     </div>
 
@@ -167,6 +177,7 @@
 @code {
     private string Token;
     private bool IsConnected = false;
+    private bool IsConnecting = false;
     private bool ShowRepoSelector = false;
     private int ActiveTab = 0;
     private string RepoFilter = "";
@@ -188,12 +199,14 @@
 
     private async Task Connect()
     {
+        IsConnecting = true;
         StatusMessage = null;
         IsConnected = false;
 
         if (string.IsNullOrWhiteSpace(Token))
         {
             StatusMessage = "Please enter a token.";
+            IsConnecting = false;
             return;
         }
 
@@ -229,6 +242,10 @@
         catch (Exception ex)
         {
             StatusMessage = $"Failed to connect: {ex.Message}";
+        }
+        finally
+        {
+            IsConnecting = false;
         }
     }
 
