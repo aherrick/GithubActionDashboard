@@ -37,9 +37,11 @@
                                 <td>
                                     @if (run != null)
                                     {
-                                        <span class="badge @GetStatusBadgeClass(run.Status, run.Conclusion)">
-                                            @run.Status @(run.Conclusion.HasValue ? $"({run.Conclusion})" : "")
-                                        </span>
+                                        <a href="@run.HtmlUrl" target="_blank" class="text-decoration-none">
+                                            <span class="badge @GetStatusBadgeClass(run.Status, run.Conclusion)">
+                                                @run.Status @(run.Conclusion.HasValue ? $"({run.Conclusion})" : "")
+                                            </span>
+                                        </a>
                                         <br />
                                         <small class="text-muted">
                                             @if (run.Status.Value == WorkflowRunStatus.Completed && run.RunStartedAt != default && run.UpdatedAt > run.RunStartedAt)
