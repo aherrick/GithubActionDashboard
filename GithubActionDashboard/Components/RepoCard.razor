@@ -39,7 +39,7 @@
                                     {
                                         <a href="@run.HtmlUrl" target="_blank" class="text-decoration-none">
                                             <span class="badge @GetStatusBadgeClass(run.Status, run.Conclusion)">
-                                                @run.Status @(run.Conclusion.HasValue ? $"({run.Conclusion})" : "")
+                                                #@run.RunNumber @run.Status @(run.Conclusion.HasValue ? $"({run.Conclusion})" : "")
                                             </span>
                                         </a>
                                         <br />
