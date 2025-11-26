@@ -47,7 +47,8 @@
                                             @if (run.Status.Value == WorkflowRunStatus.Completed && run.RunStartedAt != default && run.UpdatedAt > run.RunStartedAt)
                                             {
                                                 var duration = run.UpdatedAt - run.RunStartedAt;
-                                                @($"took {duration.Humanize(precision: 2)} finished {run.UpdatedAt.Humanize()}")
+                                                <span>Run: @duration.ToString(@"hh\:mm\:ss")</span><br />
+                                                <span>Ago: @run.UpdatedAt.Humanize()</span>
                                             }
                                             else if (run.RunStartedAt != default)
                                             {
