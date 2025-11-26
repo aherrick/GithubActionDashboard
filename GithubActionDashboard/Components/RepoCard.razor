@@ -6,7 +6,9 @@
 <div class="card mb-4 shadow-sm">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="my-0">@Repo.Name</h5>
-        <a href="@Repo.HtmlUrl" target="_blank" class="btn btn-sm btn-outline-secondary">View on GitHub</a>
+        <a href="@Repo.HtmlUrl" target="_blank" class="btn btn-sm btn-outline-secondary" title="View on GitHub">
+            <i class="bi bi-github"></i>
+        </a>
     </div>
     <div class="card-body">
         @if (Workflows == null)
