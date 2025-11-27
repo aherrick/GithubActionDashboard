@@ -1,5 +1,6 @@
 ﻿@page "/"
 @using GithubActionDashboard.Services
+@using GithubActionDashboard.Helpers
 @using Octokit
 @using Blazored.LocalStorage
 @using Humanizer
@@ -145,7 +146,7 @@
                                         <td>@run.Repository?.FullName</td>
                                         <td>@run.Name</td>
                                         <td>
-                                            <span class="badge @GetStatusBadgeClass(run.Status, run.Conclusion)">
+                                            <span class="badge @WorkflowStatusHelper.GetStatusBadgeClass(run.Status, run.Conclusion)">
                                                 @run.Status @(run.Conclusion.HasValue ? $"({run.Conclusion})" : "")
                                             </span>
                                         </td>
@@ -284,10 +285,7 @@
 
         try
         {
-            foreach (var repoCard in RepoCards.Values)
-            {
-                await repoCard.RefreshRuns();
-            }
+            await Task.WhenAll(RepoCards.Values.Select(card => card.RefreshRuns()));
         }
         finally
         {
@@ -347,12 +345,4 @@
         }
     }
 
-    private string GetStatusBadgeClass(StringEnum<WorkflowRunStatus> status, StringEnum<WorkflowRunConclusion>? conclusion)
-    {
-        if (status.Value == WorkflowRunStatus.Completed)
-        {
-            return conclusion?.Value == WorkflowRunConclusion.Success ? "bg-success" : "bg-danger";
-        }
-        return "bg-warning text-dark";
-    }
 }

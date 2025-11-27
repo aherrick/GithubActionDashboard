@@ -1,4 +1,5 @@
 @using GithubActionDashboard.Services
+@using GithubActionDashboard.Helpers
 @using Octokit
 @using Humanizer
 @inject GitHubService GitHubService
@@ -40,7 +41,7 @@
                                     @if (run != null)
                                     {
                                         <a href="@run.HtmlUrl" target="_blank" class="text-decoration-none">
-                                            <span class="badge @GetStatusBadgeClass(run.Status, run.Conclusion)">
+                                            <span class="badge @WorkflowStatusHelper.GetStatusBadgeClass(run.Status, run.Conclusion)">
                                                 #@run.RunNumber @(run.Conclusion.HasValue ? run.Conclusion.ToString() : run.Status.ToString())
                                             </span>
                                         </a>
@@ -153,13 +154,4 @@
     }
 
     private bool IsLoading(long wfId) => LoadingWorkflows.Contains(wfId);
-
-    private string GetStatusBadgeClass(StringEnum<WorkflowRunStatus> status, StringEnum<WorkflowRunConclusion>? conclusion)
-    {
-        if (status.Value == WorkflowRunStatus.Completed)
-        {
-            return conclusion?.Value == WorkflowRunConclusion.Success ? "bg-success" : "bg-danger";
-        }
-        return "bg-warning text-dark";
-    }
 }
