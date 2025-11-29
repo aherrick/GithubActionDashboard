@@ -122,14 +122,17 @@
 
         try
         {
-            var allRuns = await GitHubService.GetAllWorkflowRunsForRepoAsync(Repo.Id, perPage: 20);
-            
-            if (allRuns?.WorkflowRuns != null)
+            var tasks = Workflows.Select(async wf =>
             {
-                LatestRuns = allRuns.WorkflowRuns
-                    .GroupBy(r => r.WorkflowId)
-                    .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.UpdatedAt).First());
-            }
+                var run = await GitHubService.GetLatestWorkflowRunAsync(Repo.Id, wf.Id);
+                return (wf.Id, run);
+            });
+
+            var results = await Task.WhenAll(tasks);
+            
+            LatestRuns = results
+                .Where(r => r.run != null)
+                .ToDictionary(r => r.Id, r => r.run);
         }
         catch { /* Ignore errors */ }
     }

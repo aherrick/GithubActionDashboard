@@ -57,15 +57,35 @@ namespace GithubActionDashboard.Services
         )
         {
             var (owner, name) = await GetRepoInfoAsync(repoId);
-            var uri = new Uri(
-                $"repos/{owner}/{name}/actions/runs?per_page={perPage}",
-                UriKind.Relative
-            );
 
             try
             {
-                var response = await _client.Connection.Get<WorkflowRunsResponse>(uri, null);
-                return response.Body;
+                return await _client.Actions.Workflows.Runs.List(
+                    owner,
+                    name,
+                    new WorkflowRunsRequest(),
+                    new ApiOptions { PageSize = perPage, PageCount = 1 });
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public async Task<WorkflowRun> GetLatestWorkflowRunAsync(long repoId, long workflowId)
+        {
+            var (owner, name) = await GetRepoInfoAsync(repoId);
+
+            try
+            {
+                var response = await _client.Actions.Workflows.Runs.ListByWorkflow(
+                    owner, 
+                    name, 
+                    workflowId, 
+                    new WorkflowRunsRequest(),
+                    new ApiOptions { PageSize = 1, PageCount = 1 });
+                    
+                return response.WorkflowRuns?.FirstOrDefault();
             }
             catch
             {
