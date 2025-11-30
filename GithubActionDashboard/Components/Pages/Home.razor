@@ -30,19 +30,19 @@
 
     @if (!string.IsNullOrEmpty(StatusMessage))
     {
-        <div class="alert alert-success" role="alert">
-            @StatusMessage
+        <div class="alert alert-success d-flex justify-content-between align-items-center py-2 mb-3" role="alert">
+            <span>@StatusMessage</span>
+            @if (IsConnected)
+            {
+                <button class="btn btn-sm btn-outline-secondary" @onclick="ToggleRepoSelector">
+                    @(ShowRepoSelector ? "Hide Repos" : "Select Repos")
+                </button>
+            }
         </div>
     }
 
     @if (IsConnected)
     {
-        <div class="mb-4">
-            <button class="btn btn-outline-secondary" @onclick="ToggleRepoSelector">
-                @(ShowRepoSelector ? "Hide Repo Selector" : "Select Repositories")
-            </button>
-        </div>
-
         @if (ShowRepoSelector)
         {
             <div class="card mb-4">
@@ -76,19 +76,17 @@
             </div>
         }
 
-        <ul class="nav nav-tabs mb-3">
-            <li class="nav-item">
-                <a class="nav-link @(ActiveTab == 0 ? "active" : "")" href="#" @onclick="() => SwitchTab(0)" @onclick:preventDefault>Dashboard</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link @(ActiveTab == 1 ? "active" : "")" href="#" @onclick="() => SwitchTab(1)" @onclick:preventDefault>All Runs</a>
-            </li>
-        </ul>
-
-        @if (ActiveTab == 0)
-        {
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="mb-0">Dashboard</h5>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <ul class="nav nav-tabs mb-0">
+                <li class="nav-item">
+                    <a class="nav-link @(ActiveTab == 0 ? "active" : "")" href="#" @onclick="() => SwitchTab(0)" @onclick:preventDefault>Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link @(ActiveTab == 1 ? "active" : "")" href="#" @onclick="() => SwitchTab(1)" @onclick:preventDefault>All Runs</a>
+                </li>
+            </ul>
+            @if (ActiveTab == 0)
+            {
                 <button class="btn btn-sm btn-outline-primary" @onclick="RefreshAllRepos" disabled="@IsRefreshingRepos">
                     @if (IsRefreshingRepos)
                     {
@@ -100,7 +98,17 @@
                         <span>Refresh All</span>
                     }
                 </button>
-            </div>
+            }
+            else
+            {
+                <button class="btn btn-sm btn-outline-secondary" @onclick="LoadAllRuns" disabled="@IsLoadingAllRuns">
+                    @(IsLoadingAllRuns ? "Loading..." : "Refresh")
+                </button>
+            }
+        </div>
+
+        @if (ActiveTab == 0)
+        {
             <div class="row">
                 @foreach (var repo in FavoriteRepos)
                 {
@@ -113,13 +121,7 @@
         else
         {
             <div class="table-responsive">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h5 class="mb-0">All Runs (last 7 days)</h5>
-                    <button class="btn btn-sm btn-outline-secondary" @onclick="LoadAllRuns" disabled="@IsLoadingAllRuns">
-                        @(IsLoadingAllRuns ? "Loading..." : "Refresh")
-                    </button>
-                </div>
-                <table class="table table-striped">
+                <table class="table table-striped mb-0">
                     <thead>
                         <tr>
                             <th>Repo</th>
