@@ -10,39 +10,43 @@
 <PageTitle>GitHub Actions Dashboard</PageTitle>
 
 <div class="container mt-4">
-    <div class="mb-4">
-        <div class="input-group">
-            <span class="input-group-text">GitHub Token</span>
-            <input type="password" class="form-control" @bind="Token" placeholder="Enter your Personal Access Token" />
-            <button class="btn btn-primary" @onclick="Connect" disabled="@IsConnecting">
-                @if (IsConnecting)
-                {
-                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                    <span> Connecting...</span>
-                }
-                else
-                {
-                    <span>Connect</span>
-                }
-            </button>
-        </div>
-    </div>
-
-    @if (!string.IsNullOrEmpty(StatusMessage))
+    @if (!IsConnected)
     {
-        <div class="alert alert-success d-flex justify-content-between align-items-center py-2 mb-3" role="alert">
-            <span>@StatusMessage</span>
-            @if (IsConnected)
-            {
-                <button class="btn btn-sm btn-outline-secondary" @onclick="ToggleRepoSelector">
-                    @(ShowRepoSelector ? "Hide Repos" : "Select Repos")
+        <div class="mb-4">
+            <div class="input-group">
+                <span class="input-group-text">GitHub Token</span>
+                <input type="password" class="form-control" @bind="Token" placeholder="Enter your Personal Access Token" />
+                <button class="btn btn-primary" @onclick="Connect" disabled="@IsConnecting">
+                    @if (IsConnecting)
+                    {
+                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        <span> Connecting...</span>
+                    }
+                    else
+                    {
+                        <span>Connect</span>
+                    }
                 </button>
-            }
+            </div>
         </div>
+
+        @if (!string.IsNullOrEmpty(StatusMessage))
+        {
+            <div class="alert alert-danger" role="alert">
+                @StatusMessage
+            </div>
+        }
     }
 
     @if (IsConnected)
     {
+        <div class="alert alert-success d-flex justify-content-between align-items-center py-2 mb-3" role="alert">
+            <span>Connected to @RepoCount repos. <a href="#" @onclick="Reconnect" @onclick:preventDefault>Reconnect</a></span>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="ToggleRepoSelector">
+                @(ShowRepoSelector ? "Hide Repos" : "Select Repos")
+            </button>
+        </div>
+
         @if (ShowRepoSelector)
         {
             <div class="card mb-4">
@@ -185,6 +189,7 @@
     private int ActiveTab = 0;
     private string RepoFilter = "";
     private string StatusMessage;
+    private int RepoCount = 0;
     
     private List<Repository> FavoriteRepos = new();
     private IReadOnlyList<Repository> AllRepos;
@@ -199,6 +204,11 @@
             .Where(r => string.IsNullOrWhiteSpace(RepoFilter) || r.FullName.Contains(RepoFilter, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(r => FavoriteRepoIds.Contains(r.Id))
             .ThenBy(r => r.FullName);
+
+    private void Reconnect()
+    {
+        IsConnected = false;
+    }
 
     private async Task Connect()
     {
@@ -236,7 +246,7 @@
             }
 
             IsConnected = true;
-            StatusMessage = $"Connected. Found {testRepos.Count} repositories.";
+            RepoCount = testRepos.Count;
         }
         catch (AuthorizationException)
         {
