@@ -99,42 +99,27 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadWorkflows();
+        await LoadRuns();
     }
 
-    private async Task LoadWorkflows()
+    public async Task LoadRuns()
     {
-        try
-        {
-            var response = await GitHubService.GetWorkflowsAsync(Repo.Id);
-            Workflows = response.Workflows;
-            await RefreshRuns();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading workflows for {Repo.Name}: {ex.Message}");
-        }
-    }
+        var response = await GitHubService.GetWorkflowsAsync(Repo.Id);
+        Workflows = response.Workflows;
 
-    public async Task RefreshRuns()
-    {
-        if (Workflows == null) return;
+        if (Workflows == null || Workflows.Count == 0) return;
 
-        try
+        var tasks = Workflows.Select(async wf =>
         {
-            var tasks = Workflows.Select(async wf =>
-            {
-                var run = await GitHubService.GetLatestWorkflowRunAsync(Repo.Id, wf.Id);
-                return (wf.Id, run);
-            });
+            var run = await GitHubService.GetLatestWorkflowRunAsync(Repo.Id, wf.Id);
+            return (wf.Id, run);
+        });
 
-            var results = await Task.WhenAll(tasks);
-            
-            LatestRuns = results
-                .Where(r => r.run != null)
-                .ToDictionary(r => r.Id, r => r.run);
-        }
-        catch { /* Ignore errors */ }
+        var results = await Task.WhenAll(tasks);
+        
+        LatestRuns = results
+            .Where(r => r.run != null)
+            .ToDictionary(r => r.Id, r => r.run);
     }
 
     private async Task TriggerWorkflow(Workflow wf)
@@ -144,7 +129,7 @@
         {
             await GitHubService.TriggerWorkflowAsync(Repo.Id, wf.Id);
             await Task.Delay(2000);
-            await RefreshRuns();
+            await LoadRuns();
         }
         catch (Exception ex)
         {
