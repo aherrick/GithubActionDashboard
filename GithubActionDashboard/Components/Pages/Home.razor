@@ -297,7 +297,7 @@
 
         try
         {
-            await Task.WhenAll(RepoCards.Values.Select(card => card.RefreshRuns()));
+            await Task.WhenAll(RepoCards.Values.Select(card => card.LoadRuns()));
         }
         finally
         {
