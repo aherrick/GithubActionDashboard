@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 
 <head>
     <meta charset="utf-8" />
@@ -13,6 +13,11 @@
 </head>
 
 <body>
+    <div class="position-fixed top-0 end-0 p-2" style="z-index: 1050;">
+        <button class="btn btn-sm btn-outline-secondary" onclick="toggleTheme()" title="Toggle dark/light mode">
+            <i id="theme-icon" class="bi bi-moon-fill"></i>
+        </button>
+    </div>
     <a class="github-fork-ribbon right-top" href="https://github.com/aherrick/GithubActionDashboard" data-ribbon="Fork me on GitHub" title="Fork me on GitHub" target="_blank">Fork me on GitHub</a>
     <div id="app"></div>
 
@@ -24,5 +29,28 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="_framework/blazor.webassembly.js"></script>
+    <script>
+        function getSystemTheme() {
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-bs-theme', theme);
+            document.getElementById('theme-icon').className = theme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+        }
+        
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-bs-theme');
+            const newTheme = current === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('theme', newTheme);
+            applyTheme(newTheme);
+        }
+        
+        // Load saved theme or fall back to system preference
+        (function() {
+            const saved = localStorage.getItem('theme');
+            applyTheme(saved || getSystemTheme());
+        })();
+    </script>
 </body>
 </html>
