@@ -7,9 +7,21 @@
 <div class="card mb-4 shadow-sm">
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="my-0">@Repo.Name</h5>
-        <a href="@Repo.HtmlUrl" target="_blank" class="btn btn-sm btn-outline-secondary" title="View on GitHub">
-            <i class="bi bi-github"></i>
-        </a>
+        <div>
+            <button class="btn btn-sm btn-outline-secondary me-1" @onclick="Refresh" disabled="@IsRefreshing" title="Refresh">
+                @if (IsRefreshing)
+                {
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                }
+                else
+                {
+                    <i class="bi bi-arrow-clockwise"></i>
+                }
+            </button>
+            <a href="@Repo.HtmlUrl" target="_blank" class="btn btn-sm btn-outline-secondary" title="View on GitHub">
+                <i class="bi bi-github"></i>
+            </a>
+        </div>
     </div>
     <div class="card-body">
         @if (Workflows == null)
@@ -96,10 +108,18 @@
     private IReadOnlyList<Workflow> Workflows;
     private Dictionary<long, WorkflowRun> LatestRuns = new Dictionary<long, WorkflowRun>();
     private HashSet<long> LoadingWorkflows = new HashSet<long>();
+    private bool IsRefreshing = false;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadRuns();
+    }
+
+    private async Task Refresh()
+    {
+        IsRefreshing = true;
+        try { await LoadRuns(); }
+        finally { IsRefreshing = false; }
     }
 
     public async Task LoadRuns()
