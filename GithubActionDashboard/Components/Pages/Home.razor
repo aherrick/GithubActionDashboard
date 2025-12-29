@@ -15,18 +15,16 @@
         <div class="mb-4">
             <div class="input-group">
                 <span class="input-group-text">GitHub Token</span>
-                <input type="password" class="form-control" @bind="Token" placeholder="Enter your Personal Access Token" />
-                <button class="btn btn-primary" @onclick="Connect" disabled="@IsConnecting">
-                    @if (IsConnecting)
-                    {
+                <input type="password" class="form-control"
+                       @bind="Token" @bind:event="oninput" @bind:after="OnTokenChanged" disabled="@IsConnecting"
+                       placeholder="Enter your Personal Access Token" />
+                @if (IsConnecting)
+                {
+                    <span class="input-group-text">
                         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                        <span> Connecting...</span>
-                    }
-                    else
-                    {
-                        <span>Connect</span>
-                    }
-                </button>
+                        <span class="ms-2">Connecting...</span>
+                    </span>
+                }
             </div>
         </div>
 
@@ -191,6 +189,7 @@
     private string StatusMessage;
     private int RepoCount = 0;
     
+    
     private List<Repository> FavoriteRepos = new();
     private IReadOnlyList<Repository> AllRepos;
     private HashSet<long> FavoriteRepoIds = new();
@@ -208,6 +207,13 @@
     private void Reconnect()
     {
         IsConnected = false;
+    }
+
+    private async Task OnTokenChanged()
+    {
+        if (string.IsNullOrWhiteSpace(Token)) return;
+        if (IsConnecting) return;
+        await Connect();
     }
 
     private async Task Connect()
