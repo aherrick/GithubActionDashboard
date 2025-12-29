@@ -207,6 +207,9 @@
     private void Reconnect()
     {
         IsConnected = false;
+        Token = string.Empty;
+        StatusMessage = null;
+        RepoCount = 0;
     }
 
     private async Task OnTokenChanged()
