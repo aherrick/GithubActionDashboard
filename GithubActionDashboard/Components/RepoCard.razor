@@ -48,7 +48,11 @@
                         {
                             var run = LatestRuns.ContainsKey(wf.Id) ? LatestRuns[wf.Id] : null;
                             <tr>
-                                <td>@wf.Name</td>
+                                <td>
+                                    <a href="@wf.HtmlUrl" target="_blank" class="fw-bold text-decoration-none">
+                                        @wf.Name
+                                    </a>
+                                </td>
                                 <td>
                                     @if (run != null)
                                     {
