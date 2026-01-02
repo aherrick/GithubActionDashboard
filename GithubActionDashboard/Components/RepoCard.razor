@@ -45,11 +45,11 @@
                     </thead>
                     <tbody>
                         @foreach (var wf in Workflows)
-                        {
+                        {   
                             var run = LatestRuns.ContainsKey(wf.Id) ? LatestRuns[wf.Id] : null;
                             <tr>
                                 <td>
-                                    <a href="@wf.HtmlUrl" target="_blank" class="fw-bold text-decoration-none">
+                                    <a href="@($"{Repo.HtmlUrl}/actions/workflows/{System.IO.Path.GetFileName(wf.Path)}")" target="_blank" class="fw-bold text-decoration-none">
                                         @wf.Name
                                     </a>
                                 </td>
